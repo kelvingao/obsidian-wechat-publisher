@@ -1,8 +1,180 @@
-/*
+/* WeChat Publisher Plugin Styles */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+/* Modal 整体样式 */
+.wechat-publisher-modal {
+    max-width: 800px;
+    max-height: 90vh;
+}
 
-If your plugin does not need CSS, delete this file.
+.wechat-publisher-modal .modal-content {
+    padding: 20px;
+}
 
-*/
+/* 设置区域样式 */
+.settings-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: var(--background-secondary);
+    border-radius: 8px;
+}
+
+/* 预览区域样式 */
+.preview-section {
+    margin-bottom: 20px;
+}
+
+.preview-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 15px;
+    background-color: var(--background-primary);
+}
+
+/* 主题样式 */
+.preview-container.theme-default {
+    font-family: var(--default-font);
+    line-height: 1.6;
+    color: var(--text-normal);
+}
+
+.preview-container.theme-simple {
+    font-family: var(--default-font);
+    line-height: 1.8;
+    font-size: 16px;
+    color: var(--text-normal);
+}
+
+.preview-container.theme-elegant {
+    font-family: Georgia, serif;
+    line-height: 1.7;
+    color: var(--text-normal);
+}
+
+.preview-container.theme-tech {
+    font-family: 'Monaco', 'Consolas', monospace;
+    line-height: 1.6;
+    color: var(--text-normal);
+}
+
+.preview-container.theme-minimal {
+    font-family: var(--default-font);
+    line-height: 1.9;
+    font-weight: 300;
+    color: var(--text-muted);
+}
+
+/* 微信内容样式 */
+.wechat-content h1, .wechat-content h2, .wechat-content h3 {
+    color: var(--text-accent);
+    margin: 1em 0 0.5em 0;
+}
+
+.wechat-content h1 {
+    font-size: 1.8em;
+    border-bottom: 2px solid var(--text-accent);
+    padding-bottom: 0.3em;
+}
+
+.wechat-content h2 {
+    font-size: 1.5em;
+}
+
+.wechat-content h3 {
+    font-size: 1.3em;
+}
+
+.wechat-content p {
+    margin: 1em 0;
+    text-align: justify;
+}
+
+.wechat-content code {
+    background-color: var(--code-background);
+    color: var(--code-normal);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: var(--font-monospace);
+}
+
+.wechat-content pre {
+    background-color: var(--code-background);
+    color: var(--code-normal);
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 1em 0;
+}
+
+.wechat-content pre code {
+    background: none;
+    padding: 0;
+}
+
+.wechat-content a {
+    color: var(--text-accent);
+    text-decoration: none;
+}
+
+.wechat-content a:hover {
+    text-decoration: underline;
+}
+
+.wechat-content strong {
+    color: var(--text-normal);
+    font-weight: 600;
+}
+
+.wechat-content em {
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+/* 统计信息样式 */
+.stats-section {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: var(--background-secondary);
+    border-radius: 6px;
+}
+
+.content-stats {
+    font-size: 0.9em;
+    color: var(--text-muted);
+}
+
+.content-stats span {
+    margin-right: 15px;
+}
+
+/* 按钮容器样式 */
+.button-container {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+.button-container button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.disabled-upload-button {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 工具栏图标样式 */
+.wechat-publisher-ribbon-class {
+    color: var(--text-muted);
+}
+
+.wechat-publisher-ribbon-class:hover {
+    color: var(--text-accent);
+}
