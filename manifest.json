@@ -3,7 +3,7 @@
 	"name": "WeChat Publisher",
 	"version": "1.0.0",
 	"minAppVersion": "1.4.5",
-	"description": "Send notes to WeChat MP drafts, or copy notes to WeChat MP editor, perfect preservation of note styles, support code highlighting, line numbers in code, and support local image uploads.",
+	"description": "Publish Obsidian notes to WeChat Official Account drafts with automatic image upload and markdown formatting support.",
 	"author": "Claude Code Implementation",
 	"authorUrl": "https://github.com",
 	"isDesktopOnly": false
