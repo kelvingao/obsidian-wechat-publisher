@@ -1,79 +1,163 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { Editor, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
+import { WeChatSettings } from './src/types';
+import { DEFAULT_SETTINGS } from './src/settings';
+import { WeChatAPIManager } from './src/api/wechat-api';
+import { ContentConverter } from './src/converter';
+import { WeChatPublisherSettingTab } from './src/settings-tab';
 import { PreviewModal } from './src/preview-modal';
 
-export interface WeChatPublisherSettings {
-	accounts: WeChatAccount[];
-	defaultAccount: string;
-	defaultTheme: string;
-	mathSyntax: 'latex' | 'asciimath';
-	showStyleSelector: boolean;
-	embedStyle: 'quote' | 'content';
-}
-
-export interface WeChatAccount {
-	name: string;
-	appId: string;
-	appSecret: string;
-	accessToken?: string;
-	tokenExpiry?: number;
-}
-
-const DEFAULT_SETTINGS: WeChatPublisherSettings = {
-	accounts: [],
-	defaultAccount: '',
-	defaultTheme: 'default',
-	mathSyntax: 'latex',
-	showStyleSelector: true,
-	embedStyle: 'quote'
-}
-
 export default class WeChatPublisherPlugin extends Plugin {
-	settings: WeChatPublisherSettings;
+	settings: WeChatSettings;
+	apiManager: WeChatAPIManager;
+	converter: ContentConverter;
 
 	async onload() {
 		await this.loadSettings();
 
-		// WeChat Publisher 工具栏图标 - 使用 clipboard-paste 图标
-		const ribbonIconEl = this.addRibbonIcon('clipboard-paste', '复制到公众号', async (evt: MouseEvent) => {
-			await this.openWeChatPublisherModal();
+		// Initialize managers
+		this.apiManager = new WeChatAPIManager(this.app, this.settings);
+		this.converter = new ContentConverter(this.app, this.apiManager);
+
+		// Add ribbon icon for preview
+		const ribbonIconEl = this.addRibbonIcon('share', '预览和发布到微信公众号', () => {
+			this.openPreviewModal();
 		});
 		ribbonIconEl.addClass('wechat-publisher-ribbon-class');
 
-		// 添加命令面板支持
+		// Add commands
 		this.addCommand({
-			id: 'wechat-publisher-open',
-			name: '复制到公众号',
-			callback: async () => {
-				await this.openWeChatPublisherModal();
+			id: 'preview-wechat-article',
+			name: '预览和发布到微信公众号',
+			callback: () => {
+				this.openPreviewModal();
 			}
 		});
 
-		// 添加设置面板
+		this.addCommand({
+			id: 'publish-to-wechat',
+			name: '直接发布当前文章到微信草稿箱',
+			editorCallback: (_editor: Editor, view: MarkdownView) => {
+				if (view.file) {
+					this.publishFile(view.file);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'test-wechat-connection',
+			name: '测试微信API连接',
+			callback: () => {
+				this.testConnection();
+			}
+		});
+
+		// Add settings tab
 		this.addSettingTab(new WeChatPublisherSettingTab(this.app, this));
+
+		// Add context menu
+		this.registerEvent(
+			this.app.workspace.on('file-menu', (menu, file) => {
+				if (file instanceof TFile && file.extension === 'md') {
+					menu.addItem((item) => {
+						item
+							.setTitle('发布到微信公众号')
+							.setIcon('share')
+							.onClick(() => {
+								this.publishFile(file);
+							});
+					});
+				}
+			})
+		);
 	}
 
-	async openWeChatPublisherModal(): Promise<void> {
-		// 检查当前是否有活动的 Markdown 文档
+	async publishCurrentFile() {
 		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-		if (!activeView) {
-			new Notice('请先打开一个笔记文档');
+		if (activeView && activeView.file) {
+			await this.publishFile(activeView.file);
+		} else {
+			new Notice('请打开一个Markdown文件');
+		}
+	}
+
+	async publishFile(file: TFile) {
+		try {
+			// Check settings
+			if (!this.settings.appid || !this.settings.secret) {
+				new Notice('请先在设置中配置AppID和Secret');
+				return;
+			}
+
+			new Notice('开始发布文章...');
+
+			// Convert file to article data
+			const articleData = await this.converter.convertFileToArticle(file, this.settings.defaultAuthor);
+			
+			if (!articleData) {
+				new Notice('文章转换失败');
+				return;
+			}
+
+			// 根据设置选择发布模式
+			if (this.settings.autoPublishToPlatform) {
+				// 创建草稿并直接发布
+				const result = await this.apiManager.createAndPublishDraft(articleData);
+				
+				if (result.draftId && result.publishId) {
+					new Notice(`文章发布成功！草稿ID: ${result.draftId}，发布ID: ${result.publishId}`);
+				} else if (result.draftId) {
+					new Notice(`草稿创建成功，但发布失败！草稿ID: ${result.draftId}`);
+				}
+			} else {
+				// 仅创建草稿
+				const mediaId = await this.apiManager.createDraft(articleData);
+				
+				if (mediaId) {
+					new Notice(`草稿创建成功！草稿ID: ${mediaId}`);
+				}
+			}
+		} catch (error) {
+			console.error('发布失败:', error);
+			new Notice(`发布失败: ${error.message}`);
+		}
+	}
+
+	async openPreviewModal() {
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!activeView || !activeView.file) {
+			new Notice('请先打开一个Markdown文件');
 			return;
 		}
 
-		const editor = activeView.editor;
-		const content = editor.getValue();
+		const content = await this.app.vault.read(activeView.file);
+		const modal = new PreviewModal(
+			this.app, 
+			this.settings, 
+			content, 
+			this.converter, 
+			this.apiManager
+		);
+		modal.open();
+	}
+
+	async testConnection() {
+		if (!this.settings.appid || !this.settings.secret) {
+			new Notice('请先在设置中配置AppID和Secret');
+			return;
+		}
+
+		new Notice('正在测试连接...');
+		const success = await this.apiManager.testConnection();
 		
-		if (!content.trim()) {
-			new Notice('当前文档为空，无法转换');
-			return;
+		if (success) {
+			new Notice('连接测试成功！');
+		} else {
+			new Notice('连接测试失败，请检查配置');
 		}
-
-		// 打开预览模态框
-		new PreviewModal(this.app, this.settings, content).open();
 	}
 
 	onunload() {
-
+		// Cleanup if needed
 	}
 
 	async loadSettings() {
@@ -82,98 +166,10 @@ export default class WeChatPublisherPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class WeChatPublisherSettingTab extends PluginSettingTab {
-	plugin: WeChatPublisherPlugin;
-
-	constructor(app: App, plugin: WeChatPublisherPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const {containerEl} = this;
-		containerEl.empty();
-
-		containerEl.createEl('h2', {text: 'WeChat Publisher 设置'});
-
-		// 默认主题设置
-		new Setting(containerEl)
-			.setName('默认主题')
-			.setDesc('选择默认的微信公众号样式主题')
-			.addDropdown(dropdown => {
-				dropdown.addOption('default', '默认主题');
-				dropdown.addOption('simple', '简洁主题');
-				dropdown.addOption('elegant', '优雅主题');
-				dropdown.setValue(this.plugin.settings.defaultTheme);
-				dropdown.onChange(async (value) => {
-					this.plugin.settings.defaultTheme = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		// 数学公式语法设置
-		new Setting(containerEl)
-			.setName('数学公式语法')
-			.setDesc('选择数学公式的语法格式')
-			.addDropdown(dropdown => {
-				dropdown.addOption('latex', 'LaTeX');
-				dropdown.addOption('asciimath', 'AsciiMath');
-				dropdown.setValue(this.plugin.settings.mathSyntax);
-				dropdown.onChange(async (value: 'latex' | 'asciimath') => {
-					this.plugin.settings.mathSyntax = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		// 样式选择器显示设置
-		new Setting(containerEl)
-			.setName('在工具栏展示样式选择')
-			.setDesc('在预览界面显示样式选择和代码高亮选择')
-			.addToggle(toggle => {
-				toggle.setValue(this.plugin.settings.showStyleSelector);
-				toggle.onChange(async (value) => {
-					this.plugin.settings.showStyleSelector = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		// 文件嵌入展示样式
-		new Setting(containerEl)
-			.setName('文件嵌入展示样式')
-			.setDesc('设置嵌入文件的显示方式')
-			.addDropdown(dropdown => {
-				dropdown.addOption('quote', '引用样式');
-				dropdown.addOption('content', '正文样式');
-				dropdown.setValue(this.plugin.settings.embedStyle);
-				dropdown.onChange(async (value: 'quote' | 'content') => {
-					this.plugin.settings.embedStyle = value;
-					await this.plugin.saveSettings();
-				});
-			});
-
-		// 微信公众号账号管理部分
-		containerEl.createEl('h3', {text: '微信公众号账号管理'});
-		
-		if (this.plugin.settings.accounts.length === 0) {
-			containerEl.createEl('p', {
-				text: '还没有配置微信公众号账号。请添加账号以使用上传功能。',
-				cls: 'setting-item-description'
-			});
+		// Update API manager settings
+		if (this.apiManager) {
+			this.apiManager.updateSettings(this.settings);
 		}
-
-		// 添加账号按钮
-		new Setting(containerEl)
-			.setName('添加微信公众号账号')
-			.setDesc('配置微信公众号的 AppID 和 AppSecret')
-			.addButton(button => {
-				button.setButtonText('添加账号');
-				button.onClick(() => {
-					// 这里后续会实现账号添加对话框
-					new Notice('账号管理功能将在后续版本中实现');
-				});
-			});
 	}
 }
+
