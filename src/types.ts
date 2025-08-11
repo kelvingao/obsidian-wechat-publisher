@@ -7,6 +7,13 @@ export interface WeChatSettings {
 	autoUploadImages: boolean;
 	defaultAuthor: string;
 	autoPublishToPlatform: boolean;  // 是否自动发布到微信公众号平台
+	
+	// Markdown 转换设置
+	lineNumber: boolean;              // 是否显示代码行号
+	linkStyle: 'inline' | 'footnote'; // 链接样式：内联或脚注
+	highlightTheme: string;           // 代码高亮主题
+	useFigcaption: boolean;          // 是否使用图片说明
+	mathEnabled: boolean;            // 是否启用数学公式
 }
 
 export interface WeChatTokenResponse {

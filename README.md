@@ -1,169 +1,154 @@
 # Obsidian WeChat Publisher
 
-一个用于将 Obsidian 笔记发布到微信公众号的插件，支持 Markdown 转换、样式优化和图片上传。
+A plugin for publishing Obsidian notes to WeChat Official Accounts, with support for Markdown conversion, style optimization, and image uploading.
 
-## 功能特性
+## Features
 
-- ✨ **Markdown 转换**: 支持标题、代码块、链接、图片等完整 Markdown 语法
-- 🎨 **样式优化**: 针对微信公众号优化的 CSS 样式
-- 📸 **图片处理**: 自动上传本地图片到微信服务器
-- 🔗 **链接管理**: 支持脚注式链接显示
-- 📋 **预览功能**: 实时预览微信公众号效果
-- 🚀 **一键发布**: 直接发布到微信公众号草稿箱
+- ✨ **Markdown Conversion**: Full Markdown syntax support including headers, code blocks, links, and images
+- 🎨 **Style Optimization**: CSS styles optimized for WeChat Official Accounts
+- 📸 **Image Processing**: Automatic upload of local images to WeChat servers
+- 🔗 **Link Management**: Support for footnote-style link display
+- 📋 **Preview Function**: Real-time preview of WeChat Official Account effects
+- 🚀 **One-click Publishing**: Direct publishing to WeChat Official Account drafts
 
-## 安装
+## Installation
 
-1. 下载最新版本的插件文件
-2. 解压到 Obsidian 插件目录：`.obsidian/plugins/obsidian-wechat-publisher/`
-3. 在 Obsidian 设置中启用插件
-4. 配置微信公众号 AppID 和 Secret
+1. Download the latest plugin files
+2. Extract to Obsidian plugin directory: `.obsidian/plugins/obsidian-wechat-publisher/`
+3. Enable the plugin in Obsidian settings
+4. Configure WeChat Official Account AppID and Secret
 
-## 使用方法
+## Usage
 
-### 基础配置
+### Basic Configuration
 
-1. 打开 Obsidian 设置 → 社区插件 → WeChat Publisher
-2. 填入微信公众号的 AppID 和 Secret
-3. 设置默认作者（可选）
+1. Open Obsidian Settings → Community Plugins → WeChat Publisher
+2. Enter your WeChat Official Account AppID and Secret
+3. Set default author (optional)
 
-### 发布文章
+### Publishing Articles
 
-1. 打开要发布的 Markdown 文件
-2. 点击左侧功能区的分享图标或使用命令面板
-3. 在预览窗口中检查效果
-4. 点击"发布到草稿箱"完成发布
+1. Open the Markdown file you want to publish
+2. Click the share icon in the left ribbon or use the command palette
+3. Review the effects in the preview window
+4. Click "Publish to Draft" to complete publishing
 
-### Front Matter 配置
+### Front Matter Configuration
 
-在 Markdown 文件顶部添加 YAML 配置：
+Add YAML configuration at the top of your Markdown file:
 
 ```yaml
 ---
-title: "文章标题"
-author: "作者名称"
-digest: "文章摘要"
-banner: "封面图片路径"
+title: "Article Title"
+author: "Author Name"
+digest: "Article Summary"
+banner: "Cover Image Path"
 show_cover_pic: true
 need_open_comment: true
-content_source_url: "原文链接"
+content_source_url: "Original Article URL"
 ---
 ```
 
-## 项目结构
+## Project Structure
 
-### 源码目录结构 (`src/`)
+### Source Code Directory (`src/`)
 
 ```
 src/
 ├── api/
-│   └── wechat-api.ts              # 微信公众号 API 接口封装
+│   └── wechat-api.ts              # WeChat Official Account API wrapper
 ├── markdown/
-│   ├── extension.ts               # Markdown 扩展基类
-│   ├── heading.ts                 # 标题渲染扩展
-│   ├── code.ts                    # 代码块渲染扩展（语法高亮 + 行号）
-│   ├── link.ts                    # 链接渲染扩展（脚注式链接）
-│   └── image.ts                   # 图片处理扩展（本地图片上传）
-├── converter.ts                   # 内容转换器（协调各个服务的主控制器）
-├── markdown-parser.ts             # Markdown 解析器（纯解析逻辑，对应 note-to-mp 的 parser.ts）
-├── article-service.ts             # 文章业务服务（元数据处理、Front Matter 解析、封面上传）
-├── wechat-publisher.ts            # 微信发布器（微信格式化、CSS 内联、HTML 清理）
-├── preview-modal.ts               # 预览模态框（文章预览界面）
-├── settings-tab.ts                # 设置界面（插件配置页面）
-├── settings.ts                    # 配置管理（默认设置和配置类型定义）
-├── types.ts                       # TypeScript 类型定义
-└── utils.ts                       # 工具函数（URL 验证、CSS 解析等通用功能）
+│   ├── extension.ts               # Markdown extension base class
+│   ├── heading.ts                 # Heading rendering extension
+│   ├── code.ts                    # Code block rendering extension (syntax highlighting + line numbers)
+│   ├── link.ts                    # Link rendering extension (footnote-style links)
+│   └── image.ts                   # Image processing extension (local image upload)
+├── converter.ts                   # Content converter (main controller coordinating services)
+├── markdown-parser.ts             # Markdown parser (pure parsing logic)
+├── article-service.ts             # Article business service (metadata processing, Front Matter parsing, cover upload)
+├── wechat-publisher.ts            # WeChat publisher (WeChat formatting, CSS inlining, HTML cleaning)
+├── preview-modal.ts               # Preview modal (article preview interface)
+├── settings-tab.ts                # Settings interface (plugin configuration page)
+├── settings.ts                    # Configuration management (default settings and configuration type definitions)
+├── types.ts                       # TypeScript type definitions
+└── utils.ts                       # Utility functions (URL validation, CSS parsing, and other common functions)
 ```
 
-### 架构设计
+### Architecture Design
 
-本项目采用清晰的分层架构，将原本单一的大文件拆分为职责明确的多个服务类：
+This project adopts a clean layered architecture, breaking down the original monolithic file into multiple service classes with clear responsibilities:
 
-#### 🏗️ **核心架构层次**
+#### 🏗️ **Core Architecture Layers**
 
-1. **Controller 层**: `converter.ts` - 协调器，整合各个服务
-2. **Service 层**: `article-service.ts` - 业务逻辑处理  
-3. **Parser 层**: `markdown-parser.ts` - 纯解析功能
-4. **Publisher 层**: `wechat-publisher.ts` - 输出格式化
-5. **UI 层**: `preview-modal.ts`, `settings-tab.ts` - 用户界面
+1. **Controller Layer**: `converter.ts` - Coordinator that integrates various services
+2. **Service Layer**: `article-service.ts` - Business logic processing  
+3. **Parser Layer**: `markdown-parser.ts` - Pure parsing functionality
+4. **Publisher Layer**: `wechat-publisher.ts` - Output formatting
+5. **UI Layer**: `preview-modal.ts`, `settings-tab.ts` - User interface
 
-#### 🔧 **扩展系统**
+#### 🔧 **Extension System**
 
-- **Extension 基类**: 统一的扩展接口
-- **专用扩展**: 标题、代码、链接、图片等独立扩展
-- **可插拔设计**: 易于添加新的 Markdown 处理功能
+- **Extension Base Class**: Unified extension interface
+- **Specialized Extensions**: Independent extensions for headers, code, links, images, etc.
+- **Pluggable Design**: Easy to add new Markdown processing features
 
-#### 📦 **与 note-to-mp 的对应关系**
+## Development
 
-| note-to-mp | 本项目 | 说明 |
-|------------|--------|------|
-| `note-preview.ts` (948行) | `converter.ts` + 分离的服务类 | 我们采用分层架构替代单一文件 |
-| `weixin-api.ts` | `api/wechat-api.ts` | 微信 API 封装 |
-| `widgets-modal.ts` | `preview-modal.ts` | 预览界面 |
-| `settings.ts`, `setting-tab.ts` | `settings.ts`, `settings-tab.ts` | 配置管理 |
-
-## 开发
-
-### 环境要求
+### Requirements
 
 - Node.js >= 16
 - TypeScript >= 4.0
 
-### 构建
+### Build
 
 ```bash
-# 安装依赖
+# Install dependencies
 npm install
 
-# 开发构建（监听模式）
+# Development build (watch mode)
 npm run dev
 
-# 生产构建
+# Production build
 npm run build
 
-# 运行测试
+# Run tests
 npm test
 ```
 
-### 代码规范
+### Code Standards
 
-- 使用 TypeScript 严格模式
-- 遵循 ESLint 配置规则
-- 采用 Extension 模式进行功能扩展
-- 单一职责原则，每个类专注单一功能
+- Use TypeScript strict mode
+- Follow ESLint configuration rules
+- Use Extension pattern for feature extensions
+- Single responsibility principle, each class focuses on a single function
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Issues and Pull Requests are welcome!
 
-### 开发指南
+### Development Guide
 
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
+1. Fork this repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Create a Pull Request
 
-## 许可证
+## License
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+MIT License - see [LICENSE](LICENSE) file for details
 
-## 致谢
-
-本项目参考了 [note-to-mp](https://github.com/sunbooshi/note-to-mp) 的架构设计，在此表示感谢。
-
----
-
-## 更新日志
+## Changelog
 
 ### v1.1.0
-- ✨ 重构架构，采用分层设计
-- ✨ 优化 Markdown 解析性能
-- ✨ 改进图片上传机制
-- ✨ 增强错误处理
-- 🐛 修复标题样式显示问题
+- ✨ Refactored architecture with layered design
+- ✨ Optimized Markdown parsing performance
+- ✨ Improved image upload mechanism
+- ✨ Enhanced error handling
+- 🐛 Fixed heading style display issues
 
 ### v1.0.0
-- 🎉 初始版本发布
-- ✨ 基础 Markdown 转换功能
-- ✨ 微信公众号发布支持
-- ✨ 图片上传功能
+- 🎉 Initial release
+- ✨ Basic Markdown conversion functionality
+- ✨ WeChat Official Account publishing support
+- ✨ Image upload functionality
