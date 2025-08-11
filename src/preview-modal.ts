@@ -1,5 +1,5 @@
 import { App, Modal, Setting, ButtonComponent, Notice, MarkdownView } from 'obsidian';
-import { WeChatSettings } from './types';
+import { WeChatSettings, ArticleData } from './types';
 import { MarkdownParser } from './markdown-parser';
 import { ArticleService } from './article-service';
 import { WeChatPublisher } from './wechat-publisher';
@@ -227,7 +227,7 @@ export class PreviewModal extends Modal {
 			const processedHtml = this.wechatPublisher.formatForWechat(wrappedHtml, this.settings);
 
 			// 构建文章数据
-			const articleData = {
+			const articleData: ArticleData = {
 				title: title,
 				author: author,
 				digest: digest,
@@ -237,6 +237,12 @@ export class PreviewModal extends Modal {
 				need_open_comment: need_open_comment,
 				only_fans_can_comment: 0,
 			};
+
+			// 如果启用封面裁剪，添加裁剪参数
+			if (metadata.crop_enabled) {
+				articleData.pic_crop_235_1 = '0_0_1_0.5';        // 2.35:1比例裁剪
+				articleData.pic_crop_1_1 = '0_0.525_0.404_1';   // 1:1比例裁剪
+			}
 
 			// 更新草稿
 			const success = await this.apiManager.updateDraft(this.currentMediaId, articleData);
@@ -330,7 +336,7 @@ export class PreviewModal extends Modal {
 			const processedHtml = this.wechatPublisher.formatForWechat(wrappedHtml, this.settings);
 
 			// 构建文章数据
-			const articleData = {
+			const articleData: ArticleData = {
 				title: title,
 				author: author,
 				digest: digest,
@@ -340,6 +346,12 @@ export class PreviewModal extends Modal {
 				need_open_comment: need_open_comment,
 				only_fans_can_comment: 0,
 			};
+
+			// 如果启用封面裁剪，添加裁剪参数
+			if (metadata.crop_enabled) {
+				articleData.pic_crop_235_1 = '0_0_1_0.5';        // 2.35:1比例裁剪
+				articleData.pic_crop_1_1 = '0_0.525_0.404_1';   // 1:1比例裁剪
+			}
 
 			// 根据设置选择发布模式
 			if (this.settings.autoPublishToPlatform) {

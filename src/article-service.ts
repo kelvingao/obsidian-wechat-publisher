@@ -39,10 +39,13 @@ export class ArticleService {
             
             // 封面图片 - 支持中文和英文字段名
             metadata.banner = frontmatter['封面'] || frontmatter.banner;
-            metadata.banner_path = frontmatter['封面裁剪'] || frontmatter.banner_path;
+            metadata.banner_path = frontmatter.banner_path;
             metadata.cover = frontmatter.cover;
             metadata.cover_url = frontmatter.cover_url;
             metadata.thumb_media_id = frontmatter.thumb_media_id;
+            
+            // 封面裁剪设置 - 支持中文和英文字段名
+            metadata.crop_enabled = frontmatter['封面裁剪'] || frontmatter.crop_enabled;
             
             // 链接 - 支持中文和英文字段名
             metadata.source_url = frontmatter.source_url;
@@ -89,7 +92,7 @@ export class ArticleService {
         const warnings: string[] = [];
         
         // 检查标题 - 微信API必填字段，不能为空
-        if (!metadata.title || metadata.title.trim() === '') {
+        if (!metadata.title || (typeof metadata.title === 'string' && metadata.title.trim() === '')) {
             warnings.push(`
                 <div style="margin-bottom: 15px; padding: 15px; background: #fff2f0; border-left: 4px solid #ff4d4f; border-radius: 4px;">
                     <strong style="color: #ff4d4f;">⚠️ 标题不能为空</strong><br>
@@ -100,10 +103,10 @@ export class ArticleService {
         
         // 检查封面图片设置 - 微信API必填字段 thumb_media_id，不能为空
         const hasCover = metadata.thumb_media_id || 
-                        (metadata.banner && metadata.banner.trim() !== '') || 
-                        (metadata.banner_path && metadata.banner_path.trim() !== '') ||
-                        (metadata.cover && metadata.cover.trim() !== '') || 
-                        (metadata.cover_url && metadata.cover_url.trim() !== '');
+                        (metadata.banner && typeof metadata.banner === 'string' && metadata.banner.trim() !== '') || 
+                        (metadata.banner_path && typeof metadata.banner_path === 'string' && metadata.banner_path.trim() !== '') ||
+                        (metadata.cover && typeof metadata.cover === 'string' && metadata.cover.trim() !== '') || 
+                        (metadata.cover_url && typeof metadata.cover_url === 'string' && metadata.cover_url.trim() !== '');
         
         if (!hasCover) {
             warnings.push(`
@@ -228,7 +231,7 @@ export class ArticleService {
             '作者': this.settings.defaultAuthor || '',  // 使用设置中的默认作者
             '摘要': '',                    // string类型
             '封面': '',                    // string类型
-            '封面裁剪': '',               // string类型
+            '封面裁剪': false,            // checkbox类型（布尔值）
             '原文地址': '',               // string类型
             '打开评论': false,            // checkbox类型（布尔值）
             '仅粉丝可评论': false,        // checkbox类型（布尔值）
@@ -252,7 +255,7 @@ export class ArticleService {
                 if (!(key in frontmatter)) {
                     needsUpdate = true;
                     updates[key] = defaultValue;
-                } else if (key === '作者' && (!frontmatter[key] || frontmatter[key].trim() === '')) {
+                } else if (key === '作者' && (!frontmatter[key] || (typeof frontmatter[key] === 'string' && frontmatter[key].trim() === ''))) {
                     // 特殊处理：如果作者字段存在但为空，使用默认作者填充
                     needsUpdate = true;
                     updates[key] = this.settings.defaultAuthor || '';
@@ -292,16 +295,16 @@ export class ArticleService {
         const errors: string[] = [];
 
         // 检查标题 - 微信API必填字段，不能为空
-        if (!metadata.title || metadata.title.trim() === '') {
+        if (!metadata.title || (typeof metadata.title === 'string' && metadata.title.trim() === '')) {
             errors.push('标题不能为空，请填写【标题】字段');
         }
 
         // 检查是否有封面设置 - 微信API必填字段 thumb_media_id，不能为空
         const hasCover = metadata.thumb_media_id || 
-                        (metadata.banner && metadata.banner.trim() !== '') || 
-                        (metadata.banner_path && metadata.banner_path.trim() !== '') ||
-                        (metadata.cover && metadata.cover.trim() !== '') || 
-                        (metadata.cover_url && metadata.cover_url.trim() !== '');
+                        (metadata.banner && typeof metadata.banner === 'string' && metadata.banner.trim() !== '') || 
+                        (metadata.banner_path && typeof metadata.banner_path === 'string' && metadata.banner_path.trim() !== '') ||
+                        (metadata.cover && typeof metadata.cover === 'string' && metadata.cover.trim() !== '') || 
+                        (metadata.cover_url && typeof metadata.cover_url === 'string' && metadata.cover_url.trim() !== '');
         
         if (!hasCover) {
             errors.push('封面图片不能为空，请填写【封面】字段');

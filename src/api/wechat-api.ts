@@ -428,18 +428,29 @@ export class WeChatAPIManager {
 		try {
 			console.log('准备更新草稿, media_id:', mediaId);
 
+			// 构建文章对象，包含所有可能的参数
+			const articleObj: any = {
+				title: articleData.title,
+				author: articleData.author || '',
+				digest: articleData.digest || '',
+				content: articleData.content,
+				content_source_url: articleData.content_source_url || '',
+				thumb_media_id: articleData.thumb_media_id,
+				show_cover_pic: 1, // 默认显示封面
+				need_open_comment: articleData.need_open_comment || 0,
+				only_fans_can_comment: articleData.only_fans_can_comment || 0
+			};
+
+			// 如果有裁剪参数，添加到文章对象中
+			if (articleData.pic_crop_235_1) {
+				articleObj.pic_crop_235_1 = articleData.pic_crop_235_1;
+			}
+			if (articleData.pic_crop_1_1) {
+				articleObj.pic_crop_1_1 = articleData.pic_crop_1_1;
+			}
+
 			const articles = {
-				articles: [{
-					title: articleData.title,
-					author: articleData.author || '',
-					digest: articleData.digest || '',
-					content: articleData.content,
-					content_source_url: articleData.content_source_url || '',
-					thumb_media_id: articleData.thumb_media_id,
-					show_cover_pic: 1, // 默认显示封面
-					need_open_comment: articleData.need_open_comment || 0,
-					only_fans_can_comment: articleData.only_fans_can_comment || 0
-				}]
+				articles: [articleObj]
 			};
 
 			const url = `${this.baseWxUrl}/draft/update?access_token=${this.settings.accessToken}`;

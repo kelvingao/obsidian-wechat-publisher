@@ -50,6 +50,8 @@ export interface ArticleData {
 	show_cover_pic?: number;
 	need_open_comment?: number;
 	only_fans_can_comment?: number;
+	pic_crop_235_1?: string;  // 2.35:1 比例裁剪参数
+	pic_crop_1_1?: string;    // 1:1 比例裁剪参数
 }
 
 export interface ArticleMetadata {
@@ -81,6 +83,7 @@ export interface ArticleMetadata {
 	highlight_theme?: string; // 代码高亮主题
 	platform?: string;    // 公众号平台
 	only_fans_can_comment?: boolean; // 仅粉丝可评论
+	crop_enabled?: boolean; // 是否启用封面裁剪
 }
 
 // Theme Management Types

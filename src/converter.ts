@@ -112,6 +112,12 @@ export class ContentConverterV2 {
                 only_fans_can_comment: 0,
             };
 
+            // 如果启用封面裁剪，添加裁剪参数
+            if (metadata.crop_enabled) {
+                articleData.pic_crop_235_1 = '0_0_1_0.5';        // 2.35:1比例裁剪
+                articleData.pic_crop_1_1 = '0_0.525_0.404_1';   // 1:1比例裁剪
+            }
+
             return articleData;
         } catch (error) {
             console.error('文件转换失败:', error);
