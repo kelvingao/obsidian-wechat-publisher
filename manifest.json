@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-wechat-publisher",
 	"name": "WeChat Publisher",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"minAppVersion": "1.4.5",
 	"description": "Publish Obsidian notes to WeChat Official Account drafts with automatic image upload and markdown formatting support.",
 	"author": "Claude Code Implementation",

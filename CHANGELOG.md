@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2025-01-11
+
+### Added
+- **Draft Update Functionality**: Intelligent detection of existing drafts and ability to update them
+  - Smart button switching: "发布到草稿箱" → "更新草稿箱" when `media_id` exists in frontmatter
+  - New `updateDraft` API method for modifying existing WeChat drafts
+  - Automatic status tracking with `publish_status` field (drafted, published, updated, failed, update_failed)
+  - Enhanced error handling and user feedback for draft update operations
+
+- **Enhanced Code Highlighting**: Comprehensive improvements for WeChat mobile display
+  - Fixed line break preservation in code blocks (converts `\n` to `<br>` tags)
+  - Mobile-optimized CSS with responsive design for iOS WeChat viewing
+  - Multiple syntax highlighting themes: Default, GitHub, Dark, Monokai
+  - Integration with highlight.js for professional code syntax highlighting
+  - Improved code block scrolling and display on mobile devices
+
+- **User Interface Enhancements**: 
+  - New format settings panel with theme selection dropdowns
+  - Enhanced settings interface with code highlighting theme picker
+  - Real-time button state updates based on frontmatter content
+  - Improved preview modal with better mobile compatibility
+
+### Enhanced
+- **ArticleMetadata Interface**: Added new fields for draft management
+  - `media_id`: Draft ID for updating existing drafts
+  - `last_publish_time`: Timestamp tracking for publishing operations  
+  - `publish_status`: Detailed status tracking for all publishing states
+
+### Fixed
+- WeChat editor line break filtering issues that caused code to display incorrectly
+- Mobile WeChat code wrapping problems on iOS devices
+- TypeScript compilation errors with missing method definitions
+- Code block display inconsistencies across different WeChat clients
+
+### Technical
+- Added `ensureValidToken` method for robust API authentication
+- Enhanced markdown parser with dual code processing pipeline (highlighting + rendering)
+- Improved CSS architecture with mobile-first responsive design
+- Better separation of concerns between code highlighting and code rendering
+
 ## [1.1.0] - 2025-01-10
 
 ### Added
