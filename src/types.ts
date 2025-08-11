@@ -61,6 +61,7 @@ export interface ArticleMetadata {
 	cover?: string;        // 封面图片别名
 	cover_url?: string;    // 封面图片URL
 	thumb_media_id?: string;
+	media_id?: string;     // 草稿ID，用于更新草稿
 	source_url?: string;
 	content_source_url?: string;  // 原文链接别名
 	open_comment?: number;
@@ -70,6 +71,8 @@ export interface ArticleMetadata {
 	tags?: string[];       // 文章标签
 	category?: string;     // 文章分类
 	publish_time?: string; // 发布时间
+	last_publish_time?: string; // 上次发布时间
+	publish_status?: string; // 发布状态：drafted, published, updated, failed, update_failed
 	is_original?: boolean; // 是否原创
 	can_reprint?: boolean; // 是否允许转载
 }

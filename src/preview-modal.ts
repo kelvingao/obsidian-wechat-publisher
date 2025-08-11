@@ -14,6 +14,8 @@ export class PreviewModal extends Modal {
 	private apiManager: WeChatAPIManager;
 	private previewEl: HTMLElement;
 	private publishButton: ButtonComponent;
+	private hasMediaId: boolean = false;
+	private currentMediaId: string = '';
 
 	constructor(
 		app: App, 
@@ -68,7 +70,7 @@ export class PreviewModal extends Modal {
 		// 底部操作按钮
 		const buttonsEl = contentEl.createEl('div', { cls: 'modal-buttons' });
 		
-		// 发布按钮
+		// 发布按钮（初始状态，会在检测metadata后更新）
 		new Setting(buttonsEl)
 			.addButton(button => {
 				this.publishButton = button;
@@ -76,7 +78,11 @@ export class PreviewModal extends Modal {
 					.setButtonText('发布到草稿箱')
 					.setCta()
 					.onClick(async () => {
-						await this.publishToDraft();
+						if (this.hasMediaId) {
+							await this.updateToDraft();
+						} else {
+							await this.publishToDraft();
+						}
 					});
 			})
 			.addButton(button => {
@@ -107,6 +113,11 @@ export class PreviewModal extends Modal {
 
 			// 使用新架构直接生成预览
 			const { content, frontmatter, metadata } = await this.articleService.getMetadataFromFile(activeView.file);
+			
+			// 检查是否存在media_id，更新按钮状态
+			this.hasMediaId = !!(metadata.media_id || frontmatter?.media_id);
+			this.currentMediaId = metadata.media_id || frontmatter?.media_id || '';
+			this.updatePublishButton();
 			
 			// 解析markdown内容
 			const markdownContent = this.articleService.stripFrontMatter(content);
@@ -146,6 +157,116 @@ export class PreviewModal extends Modal {
 				text: '预览生成失败: ' + error.message, 
 				cls: 'preview-error' 
 			});
+		}
+	}
+
+	private updatePublishButton() {
+		if (this.hasMediaId) {
+			this.publishButton.setButtonText('更新草稿箱');
+		} else {
+			this.publishButton.setButtonText('发布到草稿箱');
+		}
+	}
+
+	private async updateToDraft() {
+		if (!this.settings.appid || !this.settings.secret) {
+			new Notice('请先在设置中配置AppID和Secret');
+			return;
+		}
+
+		if (!this.currentMediaId) {
+			new Notice('未找到media_id，无法更新草稿');
+			return;
+		}
+
+		// 禁用发布按钮
+		this.publishButton.setDisabled(true);
+		this.publishButton.setButtonText('正在更新...');
+
+		try {
+			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (!activeView || !activeView.file) {
+				new Notice('请先打开一个Markdown文件');
+				return;
+			}
+
+			// 使用新架构转换文件为文章数据
+			const { content, frontmatter, metadata } = await this.articleService.getMetadataFromFile(activeView.file);
+			
+			// 验证发布条件
+			this.articleService.validateForPublish(frontmatter, metadata);
+			
+			const title = metadata.title || activeView.file.basename;
+			const author = metadata.author || this.settings.defaultAuthor || ""; 
+			const digest = metadata.digest || ""; 
+			const content_source_url = metadata.content_source_url || metadata.source_url || ""; 
+			const need_open_comment = metadata.need_open_comment || metadata.open_comment || 0;
+			
+			// 处理封面图片上传
+			const thumb_media_id = await this.articleService.processCoverImage(metadata, title);
+			
+			// 解析markdown并执行图片上传
+			const markdownContent = this.articleService.stripFrontMatter(content);
+			const html = await this.parser.parseForPublish(markdownContent);
+			
+			// 包装并格式化为微信格式
+			const wrappedHtml = `<section id="nice">${html}</section>`;
+			const processedHtml = this.wechatPublisher.formatForWechat(wrappedHtml, this.settings);
+
+			// 构建文章数据
+			const articleData = {
+				title: title,
+				author: author,
+				digest: digest,
+				content: processedHtml,
+				content_source_url: content_source_url,
+				thumb_media_id: thumb_media_id,
+				need_open_comment: need_open_comment,
+				only_fans_can_comment: 0,
+			};
+
+			// 更新草稿
+			const success = await this.apiManager.updateDraft(this.currentMediaId, articleData);
+			
+			if (success) {
+				// 更新front matter中的时间戳
+				await this.articleService.updatePublishMetadata(activeView.file, {
+					media_id: this.currentMediaId,
+					thumb_media_id: articleData.thumb_media_id,
+					last_publish_time: new Date().toISOString(),
+					publish_status: 'updated'
+				});
+				
+				new Notice(`✅ 草稿更新成功！草稿ID: ${this.currentMediaId}`);
+				this.close();
+			} else {
+				// 记录失败状态
+				await this.articleService.updatePublishMetadata(activeView.file, {
+					last_publish_time: new Date().toISOString(),
+					publish_status: 'update_failed'
+				});
+			}
+
+		} catch (error) {
+			console.error('草稿更新失败:', error);
+			new Notice(`草稿更新失败: ${error.message}`);
+			
+			// 记录失败状态
+			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (activeView?.file) {
+				try {
+					await this.articleService.updatePublishMetadata(activeView.file, {
+						last_publish_time: new Date().toISOString(),
+						publish_status: 'update_failed'
+					});
+				} catch (fmError) {
+					console.error('更新失败状态到front matter时出错:', fmError);
+				}
+			}
+		} finally {
+			// 恢复发布按钮
+			this.publishButton.setDisabled(false);
+			this.updatePublishButton();
 		}
 	}
 

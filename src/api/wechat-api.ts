@@ -411,6 +411,87 @@ export class WeChatAPIManager {
 	}
 
 	/**
+	 * 确保Access Token有效
+	 */
+	private async ensureValidToken(): Promise<boolean> {
+		return await this.refreshAccessToken(this.settings.appid, this.settings.secret);
+	}
+
+	/**
+	 * 更新草稿
+	 */
+	async updateDraft(mediaId: string, articleData: ArticleData): Promise<boolean> {
+		if (!await this.ensureValidToken()) {
+			return false;
+		}
+
+		try {
+			console.log('准备更新草稿, media_id:', mediaId);
+
+			const articles = {
+				articles: [{
+					title: articleData.title,
+					author: articleData.author || '',
+					digest: articleData.digest || '',
+					content: articleData.content,
+					content_source_url: articleData.content_source_url || '',
+					thumb_media_id: articleData.thumb_media_id,
+					show_cover_pic: 1, // 默认显示封面
+					need_open_comment: articleData.need_open_comment || 0,
+					only_fans_can_comment: articleData.only_fans_can_comment || 0
+				}]
+			};
+
+			const url = `${this.baseWxUrl}/draft/update?access_token=${this.settings.accessToken}`;
+			
+			// 构建更新请求体，需要包含media_id
+			const updateData = {
+				media_id: mediaId,
+				index: 0, // 第几篇文章，从0开始
+				articles: articles.articles[0]
+			};
+
+			console.log('草稿更新请求体:', {
+				mediaId,
+				index: 0,
+				title: updateData.articles.title,
+				contentLength: updateData.articles.content.length
+			});
+
+			const req: RequestUrlParam = {
+				url: url,
+				method: 'POST',
+				headers: {
+					'Accept-Encoding': 'gzip, deflate, br',
+					'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+				},
+				body: JSON.stringify(updateData)
+			};
+
+			console.log('发送草稿更新请求...');
+			const resp = await requestUrl(req);
+			console.log('草稿更新响应:', resp.json);
+
+			const errcode = resp.json["errcode"];
+			const errmsg = resp.json["errmsg"];
+
+			if (errcode === 0) {
+				console.log('草稿更新成功');
+				new Notice(`草稿更新成功！`);
+				return true;
+			} else {
+				console.error('草稿更新失败详情:', { errcode, errmsg, fullResponse: resp.json });
+				new Notice(`草稿更新失败: ${errcode} - ${errmsg}`);
+				return false;
+			}
+		} catch (e) {
+			console.error('草稿更新异常:', e);
+			new Notice('草稿更新异常，请重试');
+			return false;
+		}
+	}
+
+	/**
 	 * 测试连接
 	 */
 	async testConnection(): Promise<boolean> {
