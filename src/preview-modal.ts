@@ -1,12 +1,16 @@
 import { App, Modal, Setting, ButtonComponent, Notice, MarkdownView } from 'obsidian';
 import { WeChatSettings } from './types';
-import { ContentConverter } from './converter';
+import { MarkdownParser } from './markdown-parser';
+import { ArticleService } from './article-service';
+import { WeChatPublisher } from './wechat-publisher';
 import { WeChatAPIManager } from './api/wechat-api';
 
 export class PreviewModal extends Modal {
 	private settings: WeChatSettings;
 	private content: string;
-	private converter: ContentConverter;
+	private parser: MarkdownParser;
+	private articleService: ArticleService;
+	private wechatPublisher: WeChatPublisher;
 	private apiManager: WeChatAPIManager;
 	private previewEl: HTMLElement;
 	private publishButton: ButtonComponent;
@@ -15,14 +19,17 @@ export class PreviewModal extends Modal {
 		app: App, 
 		settings: WeChatSettings, 
 		content: string, 
-		converter: ContentConverter, 
 		apiManager: WeChatAPIManager
 	) {
 		super(app);
 		this.settings = settings;
 		this.content = content;
-		this.converter = converter;
 		this.apiManager = apiManager;
+		
+		// Initialize services using the new architecture
+		this.parser = new MarkdownParser(app, settings, apiManager);
+		this.articleService = new ArticleService(app, apiManager, settings);
+		this.wechatPublisher = new WeChatPublisher();
 	}
 
 	onOpen() {
@@ -98,8 +105,22 @@ export class PreviewModal extends Modal {
 				throw new Error('请先打开一个Markdown文件');
 			}
 
-			// 使用新的预览方法，包含front matter信息
-			const htmlContent = await this.converter.markdownToHtmlForPreview(activeView.file);
+			// 使用新架构直接生成预览
+			const { content, frontmatter, metadata } = await this.articleService.getMetadataFromFile(activeView.file);
+			
+			// 解析markdown内容
+			const markdownContent = this.articleService.stripFrontMatter(content);
+			const html = await this.parser.parse(markdownContent);
+			
+			// 生成front matter预览信息
+			let frontMatterHtml = '';
+			if (frontmatter && Object.keys(frontmatter).length > 0) {
+				frontMatterHtml = this.articleService.generateFrontMatterPreview(metadata, activeView.file.basename);
+			}
+			
+			// 包装HTML并使用预览格式化
+			const wrappedHtml = `<section id="nice">${html}</section>`;
+			const htmlContent = this.wechatPublisher.formatForPreview(frontMatterHtml + wrappedHtml);
 			
 			// 显示预览
 			this.previewEl.empty();
@@ -145,16 +166,40 @@ export class PreviewModal extends Modal {
 				return;
 			}
 
-			// 转换文件为文章数据
-			const articleData = await this.converter.convertFileToArticle(
-				activeView.file, 
-				this.settings.defaultAuthor
-			);
+			// 使用新架构转换文件为文章数据
+			const { content, frontmatter, metadata } = await this.articleService.getMetadataFromFile(activeView.file);
 			
-			if (!articleData) {
-				new Notice('文章转换失败');
-				return;
-			}
+			// 验证发布条件
+			this.articleService.validateForPublish(frontmatter, metadata);
+			
+			const title = metadata.title || activeView.file.basename;
+			const author = metadata.author || this.settings.defaultAuthor || ""; 
+			const digest = metadata.digest || ""; 
+			const content_source_url = metadata.content_source_url || metadata.source_url || ""; 
+			const need_open_comment = metadata.need_open_comment || metadata.open_comment || 0;
+			
+			// 处理封面图片上传
+			const thumb_media_id = await this.articleService.processCoverImage(metadata, title);
+			
+			// 解析markdown并执行图片上传
+			const markdownContent = this.articleService.stripFrontMatter(content);
+			const html = await this.parser.parseForPublish(markdownContent);
+			
+			// 包装并格式化为微信格式
+			const wrappedHtml = `<section id="nice">${html}</section>`;
+			const processedHtml = this.wechatPublisher.formatForWechat(wrappedHtml);
+
+			// 构建文章数据
+			const articleData = {
+				title: title,
+				author: author,
+				digest: digest,
+				content: processedHtml,
+				content_source_url: content_source_url,
+				thumb_media_id: thumb_media_id,
+				need_open_comment: need_open_comment,
+				only_fans_can_comment: 0,
+			};
 
 			// 根据设置选择发布模式
 			if (this.settings.autoPublishToPlatform) {
@@ -162,17 +207,41 @@ export class PreviewModal extends Modal {
 				const result = await this.apiManager.createAndPublishDraft(articleData);
 				
 				if (result.draftId && result.publishId) {
-					new Notice(`文章发布成功！草稿ID: ${result.draftId}，发布ID: ${result.publishId}`);
+					// 自动更新front matter
+					await this.articleService.updatePublishMetadata(activeView.file, {
+						media_id: result.draftId,
+						thumb_media_id: articleData.thumb_media_id,
+						last_publish_time: new Date().toISOString(),
+						publish_status: 'published'
+					});
+					
+					new Notice(`🎉 文章发布成功！草稿ID: ${result.draftId}，发布ID: ${result.publishId}（已自动更新到front matter）`);
 					this.close();
 				} else if (result.draftId) {
-					new Notice(`草稿创建成功，但发布失败！草稿ID: ${result.draftId}`);
+					// 更新为草稿状态
+					await this.articleService.updatePublishMetadata(activeView.file, {
+						media_id: result.draftId,
+						thumb_media_id: articleData.thumb_media_id,
+						last_publish_time: new Date().toISOString(),
+						publish_status: 'drafted'
+					});
+					
+					new Notice(`⚠️ 草稿创建成功，但发布失败！草稿ID: ${result.draftId}（已自动更新到front matter）`);
 				}
 			} else {
 				// 仅创建草稿
 				const mediaId = await this.apiManager.createDraft(articleData);
 				
 				if (mediaId) {
-					new Notice(`草稿创建成功！草稿ID: ${mediaId}`);
+					// 自动更新front matter
+					await this.articleService.updatePublishMetadata(activeView.file, {
+						media_id: mediaId,
+						thumb_media_id: articleData.thumb_media_id,
+						last_publish_time: new Date().toISOString(),
+						publish_status: 'drafted'
+					});
+					
+					new Notice(`✅ 草稿创建成功！草稿ID: ${mediaId}（已自动更新到front matter）`);
 					this.close();
 				}
 			}
@@ -180,6 +249,19 @@ export class PreviewModal extends Modal {
 		} catch (error) {
 			console.error('发布失败:', error);
 			new Notice(`发布失败: ${error.message}`);
+			
+			// 记录失败状态
+			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (activeView?.file) {
+				try {
+					await this.articleService.updatePublishMetadata(activeView.file, {
+						last_publish_time: new Date().toISOString(),
+						publish_status: 'failed'
+					});
+				} catch (fmError) {
+					console.error('更新失败状态到front matter时出错:', fmError);
+				}
+			}
 		} finally {
 			// 恢复发布按钮
 			this.publishButton.setDisabled(false);

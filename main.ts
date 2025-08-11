@@ -2,21 +2,24 @@ import { Editor, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
 import { WeChatSettings } from './src/types';
 import { DEFAULT_SETTINGS } from './src/settings';
 import { WeChatAPIManager } from './src/api/wechat-api';
-import { ContentConverter } from './src/converter';
+import { ContentConverterV2 } from './src/converter';
 import { WeChatPublisherSettingTab } from './src/settings-tab';
 import { PreviewModal } from './src/preview-modal';
+import { ArticleService } from './src/article-service';
 
 export default class WeChatPublisherPlugin extends Plugin {
 	settings: WeChatSettings;
 	apiManager: WeChatAPIManager;
-	converter: ContentConverter;
+	converter: ContentConverterV2;
+	articleService: ArticleService;
 
 	async onload() {
 		await this.loadSettings();
 
 		// Initialize managers
 		this.apiManager = new WeChatAPIManager(this.app, this.settings);
-		this.converter = new ContentConverter(this.app, this.apiManager);
+		this.converter = new ContentConverterV2(this.app, this.apiManager, this.settings);
+		this.articleService = new ArticleService(this.app, this.apiManager, this.settings);
 
 		// Add ribbon icon for preview
 		const ribbonIconEl = this.addRibbonIcon('share', '预览和发布到微信公众号', () => {
@@ -104,21 +107,55 @@ export default class WeChatPublisherPlugin extends Plugin {
 				const result = await this.apiManager.createAndPublishDraft(articleData);
 				
 				if (result.draftId && result.publishId) {
-					new Notice(`文章发布成功！草稿ID: ${result.draftId}，发布ID: ${result.publishId}`);
+					// 自动更新front matter
+					await this.articleService.updatePublishMetadata(file, {
+						media_id: result.draftId,
+						thumb_media_id: articleData.thumb_media_id,
+						last_publish_time: new Date().toISOString(),
+						publish_status: 'published'
+					});
+					
+					new Notice(`🎉 文章发布成功！草稿ID: ${result.draftId}，发布ID: ${result.publishId}（已自动更新到front matter）`);
 				} else if (result.draftId) {
-					new Notice(`草稿创建成功，但发布失败！草稿ID: ${result.draftId}`);
+					// 更新为草稿状态
+					await this.articleService.updatePublishMetadata(file, {
+						media_id: result.draftId,
+						thumb_media_id: articleData.thumb_media_id,
+						last_publish_time: new Date().toISOString(),
+						publish_status: 'drafted'
+					});
+					
+					new Notice(`⚠️ 草稿创建成功，但发布失败！草稿ID: ${result.draftId}（已自动更新到front matter）`);
 				}
 			} else {
 				// 仅创建草稿
 				const mediaId = await this.apiManager.createDraft(articleData);
 				
 				if (mediaId) {
-					new Notice(`草稿创建成功！草稿ID: ${mediaId}`);
+					// 自动更新front matter
+					await this.articleService.updatePublishMetadata(file, {
+						media_id: mediaId,
+						thumb_media_id: articleData.thumb_media_id,
+						last_publish_time: new Date().toISOString(),
+						publish_status: 'drafted'
+					});
+					
+					new Notice(`✅ 草稿创建成功！草稿ID: ${mediaId}（已自动更新到front matter）`);
 				}
 			}
 		} catch (error) {
 			console.error('发布失败:', error);
 			new Notice(`发布失败: ${error.message}`);
+			
+			// 记录失败状态
+			try {
+				await this.articleService.updatePublishMetadata(file, {
+					last_publish_time: new Date().toISOString(),
+					publish_status: 'failed'
+				});
+			} catch (fmError) {
+				console.error('更新失败状态到front matter时出错:', fmError);
+			}
 		}
 	}
 
@@ -134,7 +171,6 @@ export default class WeChatPublisherPlugin extends Plugin {
 			this.app, 
 			this.settings, 
 			content, 
-			this.converter, 
 			this.apiManager
 		);
 		modal.open();
@@ -166,9 +202,12 @@ export default class WeChatPublisherPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		// Update API manager settings
+		// Update API manager and converter settings
 		if (this.apiManager) {
 			this.apiManager.updateSettings(this.settings);
+		}
+		if (this.converter) {
+			this.converter.updateSettings(this.settings);
 		}
 	}
 }
