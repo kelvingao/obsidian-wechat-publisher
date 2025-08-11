@@ -65,9 +65,9 @@ export interface ArticleMetadata {
 	source_url?: string;
 	content_source_url?: string;  // 原文链接别名
 	open_comment?: number;
-	need_open_comment?: number;   // 是否开启评论别名
+	need_open_comment?: boolean;   // 是否开启评论别名 - checkbox类型
 	show_cover?: number;   // 是否显示封面
-	show_cover_pic?: number;  // 是否显示封面图片
+	show_cover_pic?: boolean;  // 是否显示封面图片 - checkbox类型
 	tags?: string[];       // 文章标签
 	category?: string;     // 文章分类
 	publish_time?: string; // 发布时间
@@ -75,6 +75,12 @@ export interface ArticleMetadata {
 	publish_status?: string; // 发布状态：drafted, published, updated, failed, update_failed
 	is_original?: boolean; // 是否原创
 	can_reprint?: boolean; // 是否允许转载
+	
+	// 新增字段
+	theme?: string;        // 样式主题
+	highlight_theme?: string; // 代码高亮主题
+	platform?: string;    // 公众号平台
+	only_fans_can_comment?: boolean; // 仅粉丝可评论
 }
 
 // Theme Management Types

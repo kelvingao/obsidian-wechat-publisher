@@ -86,7 +86,8 @@ export class ContentConverterV2 {
             const author = metadata.author || defaultAuthor || ""; 
             const digest = metadata.digest || ""; 
             const content_source_url = metadata.content_source_url || metadata.source_url || ""; 
-            const need_open_comment = metadata.need_open_comment || metadata.open_comment || 0;
+            // 类型转换：布尔值转换为微信API期望的数字类型
+            const need_open_comment = metadata.need_open_comment ? 1 : (metadata.open_comment || 0);
             
             // 处理封面图片上传
             const thumb_media_id = await this.articleService.processCoverImage(metadata, title);

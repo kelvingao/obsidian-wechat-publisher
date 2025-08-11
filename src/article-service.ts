@@ -26,90 +26,126 @@ export class ArticleService {
 
     /**
      * 解析文章元数据 - 从文件内容中提取front matter
+     * 支持中文字段名和英文字段名（向后兼容）
      */
     parseMetadata(frontmatter: FrontMatterCache | undefined): ArticleMetadata {
         const metadata: ArticleMetadata = {};
         
         if (frontmatter) {
-            // 基本信息
-            metadata.title = frontmatter.title;
-            metadata.author = frontmatter.author;
-            metadata.digest = frontmatter.digest;
+            // 基本信息 - 优先使用中文字段名，英文作为备用
+            metadata.title = frontmatter['标题'] || frontmatter.title;
+            metadata.author = frontmatter['作者'] || frontmatter.author;
+            metadata.digest = frontmatter['摘要'] || frontmatter.digest;
             
-            // 封面图片 - 支持多种字段名
-            metadata.banner = frontmatter.banner;
-            metadata.banner_path = frontmatter.banner_path;
+            // 封面图片 - 支持中文和英文字段名
+            metadata.banner = frontmatter['封面'] || frontmatter.banner;
+            metadata.banner_path = frontmatter['封面裁剪'] || frontmatter.banner_path;
             metadata.cover = frontmatter.cover;
             metadata.cover_url = frontmatter.cover_url;
             metadata.thumb_media_id = frontmatter.thumb_media_id;
             
-            // 链接 - 支持多种字段名
+            // 链接 - 支持中文和英文字段名
             metadata.source_url = frontmatter.source_url;
-            metadata.content_source_url = frontmatter.content_source_url;
+            metadata.content_source_url = frontmatter['原文地址'] || frontmatter.content_source_url;
             
-            // 评论设置 - 支持多种字段名
+            // 评论设置 - 支持中文和英文字段名
             metadata.open_comment = frontmatter.open_comment;
-            metadata.need_open_comment = frontmatter.need_open_comment;
+            metadata.need_open_comment = frontmatter['打开评论'] || frontmatter.need_open_comment;
+            metadata.only_fans_can_comment = frontmatter['仅粉丝可评论'] || frontmatter.only_fans_can_comment;
             
-            // 显示设置
+            // 显示设置 - 支持中文和英文字段名
             metadata.show_cover = frontmatter.show_cover;
-            metadata.show_cover_pic = frontmatter.show_cover_pic;
+            metadata.show_cover_pic = frontmatter['显示封面'] || frontmatter.show_cover_pic;
+            
+            // 原创设置 - 支持中文和英文字段名
+            metadata.is_original = frontmatter['原创声明'] || frontmatter.is_original;
+            metadata.can_reprint = frontmatter.can_reprint;
             
             // 扩展字段
             metadata.tags = frontmatter.tags;
             metadata.category = frontmatter.category;
             metadata.publish_time = frontmatter.publish_time;
-            metadata.is_original = frontmatter.is_original;
-            metadata.can_reprint = frontmatter.can_reprint;
+            
+            // 系统管理字段（保持英文）
+            metadata.media_id = frontmatter.media_id;
+            metadata.last_publish_time = frontmatter.last_publish_time;
+            metadata.publish_status = frontmatter.publish_status;
+            
+            // 主题和样式字段 - 支持中文字段名
+            metadata.theme = frontmatter['样式'] || frontmatter.theme;
+            metadata.highlight_theme = frontmatter['代码高亮'] || frontmatter.highlight_theme;
+            metadata.platform = frontmatter['公众号'] || frontmatter.platform;
         }
 
         return metadata;
     }
 
     /**
-     * 生成front matter预览信息 - 创建文章信息卡片HTML
+     * 生成front matter预览信息 - 只在有警告情况时显示
+     * 基于微信公众号草稿箱API要求验证必填字段：title, content, thumb_media_id
+     * 注意：front matter字段已自动补全，这里只警告不能为空的关键字段
      */
     generateFrontMatterPreview(metadata: ArticleMetadata, filename: string): string {
-        const title = metadata.title || filename;
-        const author = metadata.author || '未设置';
-        const digest = metadata.digest || '未设置';
+        const warnings: string[] = [];
         
-        // 封面图片状态
-        let coverStatus = '❌ 未设置';
-        let coverInfo = '';
-        
-        if (metadata.thumb_media_id) {
-            coverStatus = '✅ 已设置 (thumb_media_id)';
-            coverInfo = metadata.thumb_media_id;
-        } else if (metadata.banner || metadata.banner_path || metadata.cover || metadata.cover_url) {
-            coverStatus = '⚠️ 待上传';
-            coverInfo = metadata.banner || metadata.banner_path || metadata.cover || metadata.cover_url || '';
-        }
-
-        return `
-            <div style="background: #f0f8ff; border: 2px solid #1890ff; border-radius: 8px; padding: 20px; margin-bottom: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto;">
-                <h3 style="margin: 0 0 15px 0; color: #1890ff; font-size: 16px;">📝 文章发布信息</h3>
-                <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 15px; font-size: 14px;">
-                    <strong>标题:</strong> <span>${title}</span>
-                    <strong>作者:</strong> <span>${author}</span>
-                    <strong>摘要:</strong> <span>${digest}</span>
-                    <strong>封面图片:</strong> <span>${coverStatus}</span>
-                    ${coverInfo ? `<strong>封面路径:</strong> <span style="word-break: break-all;">${coverInfo}</span>` : ''}
-                    <strong>显示封面:</strong> <span>${metadata.show_cover_pic || metadata.show_cover ? '是' : '否'}</span>
-                    <strong>开启评论:</strong> <span>${metadata.need_open_comment || metadata.open_comment ? '是' : '否'}</span>
-                    ${metadata.content_source_url || metadata.source_url ? `<strong>原文链接:</strong> <span style="word-break: break-all;">${metadata.content_source_url || metadata.source_url}</span>` : ''}
-                    ${metadata.tags && metadata.tags.length > 0 ? `<strong>标签:</strong> <span>${Array.isArray(metadata.tags) ? metadata.tags.join(', ') : metadata.tags}</span>` : ''}
-                    ${metadata.category ? `<strong>分类:</strong> <span>${metadata.category}</span>` : ''}
+        // 检查标题 - 微信API必填字段，不能为空
+        if (!metadata.title || metadata.title.trim() === '') {
+            warnings.push(`
+                <div style="margin-bottom: 15px; padding: 15px; background: #fff2f0; border-left: 4px solid #ff4d4f; border-radius: 4px;">
+                    <strong style="color: #ff4d4f;">⚠️ 标题不能为空</strong><br>
+                    微信草稿API要求必须提供文章标题，请填写<code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px;">标题</code>字段的值。
                 </div>
-                ${coverStatus.includes('❌') ? `
-                <div style="margin-top: 15px; padding: 10px; background: #fff2f0; border-left: 4px solid #ff4d4f; border-radius: 4px;">
-                    <strong style="color: #ff4d4f;">⚠️ 注意：</strong> 需要设置封面图片才能发布。请在front matter中添加以下字段之一：<br>
-                    <code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px; margin: 2px;">banner: "图片路径"</code>
-                    <code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px; margin: 2px;">cover: "图片路径"</code>
-                    <code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px; margin: 2px;">cover_url: "图片URL"</code>
-                </div>` : ''}
-            </div>
-        `;
+            `);
+        }
+        
+        // 检查封面图片设置 - 微信API必填字段 thumb_media_id，不能为空
+        const hasCover = metadata.thumb_media_id || 
+                        (metadata.banner && metadata.banner.trim() !== '') || 
+                        (metadata.banner_path && metadata.banner_path.trim() !== '') ||
+                        (metadata.cover && metadata.cover.trim() !== '') || 
+                        (metadata.cover_url && metadata.cover_url.trim() !== '');
+        
+        if (!hasCover) {
+            warnings.push(`
+                <div style="margin-bottom: 15px; padding: 15px; background: #fff2f0; border-left: 4px solid #ff4d4f; border-radius: 4px;">
+                    <strong style="color: #ff4d4f;">⚠️ 封面图片不能为空</strong><br>
+                    微信草稿API要求必须提供封面图片，请填写<code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px;">封面</code>字段的值。
+                </div>
+            `);
+        }
+        
+        // 检查是否有media_id（表示需要更新而不是新建）
+        if (metadata.media_id) {
+            warnings.push(`
+                <div style="margin-bottom: 15px; padding: 15px; background: #f6ffed; border-left: 4px solid #52c41a; border-radius: 4px;">
+                    <strong style="color: #52c41a;">📝 更新草稿模式</strong><br>
+                    检测到已存在草稿ID: <code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px;">${metadata.media_id}</code><br>
+                    点击发布将更新现有草稿而不是创建新草稿。
+                </div>
+            `);
+        }
+        
+        // 检查发布状态警告
+        if (metadata.publish_status) {
+            const status = metadata.publish_status;
+            if (status === 'failed' || status === 'update_failed') {
+                warnings.push(`
+                    <div style="margin-bottom: 15px; padding: 15px; background: #fff1f0; border-left: 4px solid #ff7875; border-radius: 4px;">
+                        <strong style="color: #ff7875;">❌ 上次操作失败</strong><br>
+                        上次${status === 'failed' ? '发布' : '更新'}失败，请检查网络连接和API配置后重试。<br>
+                        ${metadata.last_publish_time ? `失败时间: ${new Date(metadata.last_publish_time).toLocaleString()}` : ''}
+                    </div>
+                `);
+            }
+        }
+        
+        // 只有在有警告时才返回HTML
+        if (warnings.length > 0) {
+            return warnings.join('');
+        }
+        
+        // 正常情况下返回空字符串（不显示卡片）
+        return '';
     }
 
     /**
@@ -155,33 +191,125 @@ export class ArticleService {
 
     /**
      * 从文件获取元数据 - 读取并解析文件内容和元数据
+     * 如果缺少必要的front matter字段，会自动补全
      */
     async getMetadataFromFile(file: TFile): Promise<{
         content: string;
         frontmatter: FrontMatterCache | undefined;
         metadata: ArticleMetadata;
     }> {
-        const content = await this.app.vault.read(file);
-        const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+        let content = await this.app.vault.read(file);
+        let frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+        
+        // 检查并自动补全必要的front matter字段
+        const wasUpdated = await this.ensureFrontMatterFields(file, content, frontmatter);
+        
+        if (wasUpdated) {
+            // 重新读取更新后的文件内容和元数据
+            content = await this.app.vault.read(file);
+            // 强制刷新缓存
+            await new Promise(resolve => setTimeout(resolve, 100));
+            frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+        }
+        
         const metadata = this.parseMetadata(frontmatter);
         
         return { content, frontmatter, metadata };
     }
 
     /**
-     * 验证发布必要条件
+     * 确保文件包含必要的front matter字段
+     * 如果缺少字段，会自动添加并设置为空值或默认值
      */
-    validateForPublish(frontmatter: FrontMatterCache | undefined, metadata: ArticleMetadata): void {
+    private async ensureFrontMatterFields(file: TFile, content: string, frontmatter: FrontMatterCache | undefined): Promise<boolean> {
+        // 定义必要的字段和默认值（使用中文字段名）
+        const requiredFields = {
+            '标题': '',                    // string类型
+            '作者': this.settings.defaultAuthor || '',  // 使用设置中的默认作者
+            '摘要': '',                    // string类型
+            '封面': '',                    // string类型
+            '封面裁剪': '',               // string类型
+            '原文地址': '',               // string类型
+            '打开评论': false,            // checkbox类型（布尔值）
+            '仅粉丝可评论': false,        // checkbox类型（布尔值）
+            '显示封面': true,             // checkbox类型（布尔值）
+            '原创声明': true,             // checkbox类型（布尔值）
+            '公众号': '',                 // string类型
+            '样式': '',                   // string类型
+            '代码高亮': ''                // string类型
+        };
+
+        let needsUpdate = false;
+        const updates: Record<string, any> = {};
+
+        // 检查是否完全没有front matter
         if (!frontmatter) {
-            throw new Error('Please add frontmatter with banner/cover image configuration');
+            needsUpdate = true;
+            Object.assign(updates, requiredFields);
+        } else {
+            // 检查各个必要字段
+            for (const [key, defaultValue] of Object.entries(requiredFields)) {
+                if (!(key in frontmatter)) {
+                    needsUpdate = true;
+                    updates[key] = defaultValue;
+                } else if (key === '作者' && (!frontmatter[key] || frontmatter[key].trim() === '')) {
+                    // 特殊处理：如果作者字段存在但为空，使用默认作者填充
+                    needsUpdate = true;
+                    updates[key] = this.settings.defaultAuthor || '';
+                }
+            }
         }
 
-        // 检查是否有封面设置
-        const hasCover = metadata.thumb_media_id || metadata.banner || metadata.banner_path || 
-                        metadata.cover || metadata.cover_url;
+        // 如果需要更新，执行更新
+        if (needsUpdate) {
+            try {
+                await this.updatePublishMetadata(file, updates);
+                console.log('自动补全front matter字段:', Object.keys(updates));
+                // 显示用户友好的提示
+                const addedFields = Object.keys(updates).join(', ');
+                // 使用setTimeout避免阻塞UI
+                setTimeout(() => {
+                    // 动态导入Notice以避免循环依赖
+                    const { Notice } = require('obsidian');
+                    new Notice(`✅ 已自动补全front matter字段: ${addedFields}`);
+                }, 100);
+                return true;
+            } catch (error) {
+                console.error('自动补全front matter失败:', error);
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 验证发布必要条件
+     * 基于微信公众号草稿箱API要求验证必填字段：title, content, thumb_media_id
+     * 注意：front matter字段已自动补全，这里只验证不能为空的关键字段
+     */
+    validateForPublish(frontmatter: FrontMatterCache | undefined, metadata: ArticleMetadata): void {
+        const errors: string[] = [];
+
+        // 检查标题 - 微信API必填字段，不能为空
+        if (!metadata.title || metadata.title.trim() === '') {
+            errors.push('标题不能为空，请填写【标题】字段');
+        }
+
+        // 检查是否有封面设置 - 微信API必填字段 thumb_media_id，不能为空
+        const hasCover = metadata.thumb_media_id || 
+                        (metadata.banner && metadata.banner.trim() !== '') || 
+                        (metadata.banner_path && metadata.banner_path.trim() !== '') ||
+                        (metadata.cover && metadata.cover.trim() !== '') || 
+                        (metadata.cover_url && metadata.cover_url.trim() !== '');
         
         if (!hasCover) {
-            throw new Error('Please set banner/cover image in frontmatter: banner, banner_path, cover, cover_url, or thumb_media_id');
+            errors.push('封面图片不能为空，请填写【封面】字段');
+        }
+
+        // 如果有错误，抛出异常
+        if (errors.length > 0) {
+            throw new Error(errors.join('；'));
         }
     }
 

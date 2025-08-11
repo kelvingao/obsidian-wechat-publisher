@@ -112,7 +112,13 @@ export class PreviewModal extends Modal {
 			}
 
 			// 使用新架构直接生成预览
+			console.log('开始获取文件元数据...');
 			const { content, frontmatter, metadata } = await this.articleService.getMetadataFromFile(activeView.file);
+			console.log('元数据获取完成:', { 
+				contentLength: content.length, 
+				frontmatterKeys: frontmatter ? Object.keys(frontmatter) : [], 
+				metadataKeys: Object.keys(metadata) 
+			});
 			
 			// 检查是否存在media_id，更新按钮状态
 			this.hasMediaId = !!(metadata.media_id || frontmatter?.media_id);
@@ -121,17 +127,18 @@ export class PreviewModal extends Modal {
 			
 			// 解析markdown内容
 			const markdownContent = this.articleService.stripFrontMatter(content);
+			console.log('Markdown内容长度:', markdownContent.length);
 			const html = await this.parser.parse(markdownContent);
+			console.log('解析后HTML长度:', html.length);
 			
-			// 生成front matter预览信息
-			let frontMatterHtml = '';
-			if (frontmatter && Object.keys(frontmatter).length > 0) {
-				frontMatterHtml = this.articleService.generateFrontMatterPreview(metadata, activeView.file.basename);
-			}
+			// 生成front matter预览信息 - front matter字段会自动补全，只显示值为空的警告
+			const frontMatterHtml = this.articleService.generateFrontMatterPreview(metadata, activeView.file.basename);
+			console.log('Front matter警告HTML长度:', frontMatterHtml.length);
 			
 			// 包装HTML并使用预览格式化
 			const wrappedHtml = `<section id="nice">${html}</section>`;
 			const htmlContent = this.wechatPublisher.formatForPreview(frontMatterHtml + wrappedHtml, this.settings);
+			console.log('最终HTML内容长度:', htmlContent.length);
 			
 			// 显示预览
 			this.previewEl.empty();
@@ -179,10 +186,6 @@ export class PreviewModal extends Modal {
 			return;
 		}
 
-		// 禁用发布按钮
-		this.publishButton.setDisabled(true);
-		this.publishButton.setButtonText('正在更新...');
-
 		try {
 			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (!activeView || !activeView.file) {
@@ -193,14 +196,24 @@ export class PreviewModal extends Modal {
 			// 使用新架构转换文件为文章数据
 			const { content, frontmatter, metadata } = await this.articleService.getMetadataFromFile(activeView.file);
 			
-			// 验证发布条件
-			this.articleService.validateForPublish(frontmatter, metadata);
+			// 在开始更新前先验证发布条件
+			try {
+				this.articleService.validateForPublish(frontmatter, metadata);
+			} catch (validationError) {
+				new Notice(`❌ 更新前检查失败: ${validationError.message}`);
+				return;
+			}
+
+			// 禁用发布按钮
+			this.publishButton.setDisabled(true);
+			this.publishButton.setButtonText('正在更新...');
 			
 			const title = metadata.title || activeView.file.basename;
 			const author = metadata.author || this.settings.defaultAuthor || ""; 
 			const digest = metadata.digest || ""; 
 			const content_source_url = metadata.content_source_url || metadata.source_url || ""; 
-			const need_open_comment = metadata.need_open_comment || metadata.open_comment || 0;
+			// 类型转换：布尔值转换为微信API期望的数字类型
+			const need_open_comment = metadata.need_open_comment ? 1 : (metadata.open_comment || 0);
 			
 			// 处理封面图片上传
 			const thumb_media_id = await this.articleService.processCoverImage(metadata, title);
@@ -276,10 +289,6 @@ export class PreviewModal extends Modal {
 			return;
 		}
 
-		// 禁用发布按钮
-		this.publishButton.setDisabled(true);
-		this.publishButton.setButtonText('正在发布...');
-
 		try {
 			const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (!activeView || !activeView.file) {
@@ -290,14 +299,24 @@ export class PreviewModal extends Modal {
 			// 使用新架构转换文件为文章数据
 			const { content, frontmatter, metadata } = await this.articleService.getMetadataFromFile(activeView.file);
 			
-			// 验证发布条件
-			this.articleService.validateForPublish(frontmatter, metadata);
+			// 在开始发布前先验证发布条件
+			try {
+				this.articleService.validateForPublish(frontmatter, metadata);
+			} catch (validationError) {
+				new Notice(`❌ 发布前检查失败: ${validationError.message}`);
+				return;
+			}
+
+			// 禁用发布按钮
+			this.publishButton.setDisabled(true);
+			this.publishButton.setButtonText('正在发布...');
 			
 			const title = metadata.title || activeView.file.basename;
 			const author = metadata.author || this.settings.defaultAuthor || ""; 
 			const digest = metadata.digest || ""; 
 			const content_source_url = metadata.content_source_url || metadata.source_url || ""; 
-			const need_open_comment = metadata.need_open_comment || metadata.open_comment || 0;
+			// 类型转换：布尔值转换为微信API期望的数字类型
+			const need_open_comment = metadata.need_open_comment ? 1 : (metadata.open_comment || 0);
 			
 			// 处理封面图片上传
 			const thumb_media_id = await this.articleService.processCoverImage(metadata, title);
