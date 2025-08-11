@@ -1,5 +1,5 @@
 /**
- * 文章业务服务 - 对应note-to-mp的note-preview.ts的业务逻辑部分
+ * 文章业务服务 - 处理文章元数据、封面上传和发布逻辑
  * 职责: 处理文章元数据、Front Matter解析、业务流程控制
  */
 import { TFile, FrontMatterCache, App } from 'obsidian';
@@ -25,7 +25,7 @@ export class ArticleService {
     }
 
     /**
-     * 解析文章元数据 - 对应note-to-mp的getMetadata()
+     * 解析文章元数据 - 从文件内容中提取front matter
      */
     parseMetadata(frontmatter: FrontMatterCache | undefined): ArticleMetadata {
         const metadata: ArticleMetadata = {};
@@ -67,7 +67,7 @@ export class ArticleService {
     }
 
     /**
-     * 生成front matter预览信息 - 对应note-to-mp的UI生成逻辑
+     * 生成front matter预览信息 - 创建文章信息卡片HTML
      */
     generateFrontMatterPreview(metadata: ArticleMetadata, filename: string): string {
         const title = metadata.title || filename;
@@ -126,7 +126,7 @@ export class ArticleService {
     }
 
     /**
-     * 处理封面上传 - 对应note-to-mp的封面处理逻辑
+     * 处理封面上传 - 上传封面图片到微信服务器
      */
     async processCoverImage(metadata: ArticleMetadata, title: string): Promise<string> {
         let thumb_media_id: string | undefined = "";
@@ -154,7 +154,7 @@ export class ArticleService {
     }
 
     /**
-     * 从文件获取元数据 - 对应note-to-mp的文件处理
+     * 从文件获取元数据 - 读取并解析文件内容和元数据
      */
     async getMetadataFromFile(file: TFile): Promise<{
         content: string;

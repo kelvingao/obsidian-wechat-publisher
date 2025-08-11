@@ -9,11 +9,15 @@ export interface WeChatSettings {
 	autoPublishToPlatform: boolean;  // 是否自动发布到微信公众号平台
 	
 	// Markdown 转换设置
-	lineNumber: boolean;              // 是否显示代码行号
 	linkStyle: 'inline' | 'footnote'; // 链接样式：内联或脚注
 	highlightTheme: string;           // 代码高亮主题
 	useFigcaption: boolean;          // 是否使用图片说明
 	mathEnabled: boolean;            // 是否启用数学公式
+	
+	// 主题设置
+	defaultTheme: string;            // 默认主题名称
+	showThemeSelector: boolean;      // 是否在界面显示主题选择器
+	customCSS: string;              // 自定义CSS
 }
 
 export interface WeChatTokenResponse {
@@ -68,4 +72,29 @@ export interface ArticleMetadata {
 	publish_time?: string; // 发布时间
 	is_original?: boolean; // 是否原创
 	can_reprint?: boolean; // 是否允许转载
+}
+
+// Theme Management Types
+export interface WeChatTheme {
+	name: string;          // 主题名称
+	className: string;     // CSS类名
+	description: string;   // 主题描述
+	author: string;        // 作者
+	css: string;          // 主题CSS内容
+	version?: string;     // 主题版本
+	preview?: string;     // 预览图URL
+}
+
+export interface HighlightTheme {
+	name: string;         // 高亮主题名称
+	css: string;         // 高亮CSS内容
+	language?: string;   // 适用语言
+}
+
+export interface ThemeAssets {
+	themes: WeChatTheme[];
+	highlights: HighlightTheme[];
+	customCSS?: string;
+	version: string;
+	updateTime: string;
 }

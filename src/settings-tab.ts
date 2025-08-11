@@ -1,13 +1,16 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, TextAreaComponent } from 'obsidian';
 import WeChatPublisherPlugin from '../main';
 import { WeChatSettings } from './types';
+import ThemeManager from './theme-manager';
 
 export class WeChatPublisherSettingTab extends PluginSettingTab {
 	plugin: WeChatPublisherPlugin;
+	private themeManager: ThemeManager;
 
 	constructor(app: App, plugin: WeChatPublisherPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+		this.themeManager = ThemeManager.getInstance();
 	}
 
 	display(): void {
@@ -117,6 +120,156 @@ export class WeChatPublisherSettingTab extends PluginSettingTab {
 				.setName('Token 状态')
 				.setDesc(`Token 过期时间: ${tokenExpireTime.toLocaleString()}`);
 		}
+
+		// 格式化设置标题
+		containerEl.createEl('h3', { text: '内容格式化设置' });
+
+		// 代码高亮主题
+		new Setting(containerEl)
+			.setName('代码高亮主题')
+			.setDesc('选择代码块的语法高亮主题，优化WeChat显示效果')
+			.addDropdown(dropdown => {
+				// 动态添加高亮主题选项
+				const highlights = this.themeManager.getHighlights();
+				highlights.forEach(highlight => {
+					dropdown.addOption(highlight.name, highlight.name);
+				});
+				
+				dropdown.setValue(this.plugin.settings.highlightTheme)
+					.onChange(async (value) => {
+						this.plugin.settings.highlightTheme = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		// 链接样式
+		new Setting(containerEl)
+			.setName('链接显示样式')
+			.setDesc('选择链接在微信文章中的显示方式')
+			.addDropdown(dropdown => dropdown
+				.addOption('inline', '内联显示')
+				.addOption('footnote', '脚注样式')
+				.setValue(this.plugin.settings.linkStyle)
+				.onChange(async (value) => {
+					this.plugin.settings.linkStyle = value as 'inline' | 'footnote';
+					await this.plugin.saveSettings();
+				}));
+
+		// 图片说明
+		new Setting(containerEl)
+			.setName('使用图片说明')
+			.setDesc('为图片添加说明文字（figcaption）')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.useFigcaption)
+				.onChange(async (value) => {
+					this.plugin.settings.useFigcaption = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// 数学公式
+		new Setting(containerEl)
+			.setName('启用数学公式')
+			.setDesc('支持LaTeX数学公式渲染')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.mathEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings.mathEnabled = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// 主题管理设置标题
+		containerEl.createEl('h3', { text: '主题管理设置' });
+
+		// 默认主题选择
+		new Setting(containerEl)
+			.setName('默认主题')
+			.setDesc('选择微信文章的默认样式主题')
+			.addDropdown(dropdown => {
+				// 动态添加主题选项
+				const themes = this.themeManager.getThemes();
+				themes.forEach(theme => {
+					dropdown.addOption(theme.name, theme.name);
+				});
+				
+				dropdown.setValue(this.plugin.settings.defaultTheme)
+					.onChange(async (value) => {
+						this.plugin.settings.defaultTheme = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		// 显示主题选择器
+		new Setting(containerEl)
+			.setName('显示主题选择器')
+			.setDesc('在预览界面显示主题选择器，方便临时更换主题')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showThemeSelector)
+				.onChange(async (value) => {
+					this.plugin.settings.showThemeSelector = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// 自定义CSS
+		new Setting(containerEl)
+			.setName('自定义CSS样式')
+			.setDesc('添加自定义CSS样式，将在主题样式之后应用')
+			.addTextArea(textArea => {
+				textArea
+					.setPlaceholder('输入自定义CSS样式...\n例如：\n.wechat-content {\n  font-size: 18px;\n  color: #333;\n}')
+					.setValue(this.plugin.settings.customCSS)
+					.onChange(async (value) => {
+						this.plugin.settings.customCSS = value;
+						await this.plugin.saveSettings();
+						// 同时更新ThemeManager中的自定义CSS
+						await this.themeManager.setCustomCSS(value);
+					});
+				
+				textArea.inputEl.style.width = '100%';
+				textArea.inputEl.style.height = '150px';
+				textArea.inputEl.style.fontFamily = 'monospace';
+			});
+
+		// 主题资源管理
+		new Setting(containerEl)
+			.setName('主题资源管理')
+			.setDesc('下载更多主题或管理现有主题资源')
+			.addButton(button => button
+				.setButtonText('下载更多主题')
+				.onClick(async () => {
+					button.setDisabled(true);
+					button.setButtonText('下载中...');
+					
+					const success = await this.themeManager.downloadThemes();
+					if (success) {
+						// 重新渲染设置界面以显示新主题
+						this.display();
+					}
+					
+					button.setDisabled(false);
+					button.setButtonText('下载更多主题');
+				}))
+			.addButton(button => button
+				.setButtonText('清空主题')
+				.setWarning()
+				.onClick(async () => {
+					button.setDisabled(true);
+					button.setButtonText('清空中...');
+					
+					await this.themeManager.clearThemes();
+					// 重置设置为默认主题
+					this.plugin.settings.defaultTheme = '默认主题';
+					await this.plugin.saveSettings();
+					// 重新渲染设置界面
+					this.display();
+					
+					button.setDisabled(false);
+					button.setButtonText('清空主题');
+				}))
+			.addButton(button => button
+				.setButtonText('打开资源目录')
+				.onClick(() => {
+					this.themeManager.openAssetsFolder();
+				}));
 	}
 
 	private updateConnectionStatus(setting: Setting, status?: string) {

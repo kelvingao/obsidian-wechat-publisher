@@ -3,7 +3,7 @@ import { Extension } from "./extension";
 
 /**
  * Enhanced Link Optimization Extension
- * 基于note-to-mp的链接优化实现，支持脚注式和内联式链接
+ * 增强的链接优化扩展，支持脚注式和内联式链接处理
  */
 export class LinkExtension extends Extension {
     private allLinks: string[] = [];

@@ -1,5 +1,5 @@
 /**
- * 纯Markdown解析器 - 对应note-to-mp的parser.ts
+ * 纯Markdown解析器 - 负责Markdown到HTML的转换
  * 职责: 只负责Markdown -> HTML的转换，不涉及业务逻辑
  */
 import { App, Vault } from 'obsidian';
@@ -9,6 +9,7 @@ import { WeChatAPIManager } from './api/wechat-api';
 import { Extension, MDRendererCallback } from './markdown/extension';
 import { HeadingExtension } from './markdown/heading';
 import { CodeRenderer } from './markdown/code';
+import { CodeHighlight } from './markdown/code-highlight';
 import { LinkExtension } from './markdown/link';
 import { ImageExtension } from './markdown/image';
 
@@ -36,7 +37,7 @@ const customRenderer = {
 };
 
 /**
- * 纯Markdown解析器类 - 对应note-to-mp的MarkedParser
+ * 纯Markdown解析器类 - 基于Marked库的扩展式解析器
  */
 export class MarkdownParser implements MDRendererCallback {
     extensions: Extension[] = [];
@@ -57,9 +58,10 @@ export class MarkdownParser implements MDRendererCallback {
     }
 
     private addExtensions(apiManager: WeChatAPIManager): void {
-        // 按照note-to-mp的方式添加扩展
+        // 添加扩展到解析器管道
         this.extensions.push(new HeadingExtension(this.app, this.settings, apiManager, this));
-        this.extensions.push(new CodeRenderer(this.app, this.settings, apiManager, this));
+        this.extensions.push(new CodeHighlight(this.app, this.settings, apiManager, this)); // 先添加语法高亮
+        this.extensions.push(new CodeRenderer(this.app, this.settings, apiManager, this)); // 再添加代码渲染
         this.extensions.push(new LinkExtension(this.app, this.settings, apiManager, this));
         this.extensions.push(new ImageExtension(this.app, this.settings, apiManager, this));
         
@@ -69,7 +71,7 @@ export class MarkdownParser implements MDRendererCallback {
     }
 
     /**
-     * 构建Marked实例 - 对应note-to-mp的buildMarked()
+     * 构建Marked实例 - 初始化解析器和扩展
      */
     async buildMarked(): Promise<void> {
         this.marked = new Marked();
@@ -87,7 +89,7 @@ export class MarkdownParser implements MDRendererCallback {
     }
 
     /**
-     * 准备阶段 - 对应note-to-mp的prepare()
+     * 准备阶段 - 初始化所有扩展
      */
     async prepare(): Promise<void> {
         for (const ext of this.extensions) {
@@ -96,7 +98,7 @@ export class MarkdownParser implements MDRendererCallback {
     }
 
     /**
-     * 后处理阶段 - 对应note-to-mp的postprocess()
+     * 后处理阶段 - 应用扩展的后处理逻辑
      */
     async postprocess(html: string): Promise<string> {
         let result = html;
@@ -116,7 +118,7 @@ export class MarkdownParser implements MDRendererCallback {
     }
 
     /**
-     * 清理资源 - 对应note-to-mp的cleanup逻辑
+     * 清理资源 - 释放扩展占用的资源
      */
     async cleanup(): Promise<void> {
         for (const ext of this.extensions) {
@@ -127,7 +129,7 @@ export class MarkdownParser implements MDRendererCallback {
     }
 
     /**
-     * 基础解析 - 对应note-to-mp的parse()
+     * 基础解析 - 执行Markdown到HTML转换
      */
     async parse(content: string): Promise<string> {
         try {

@@ -6,17 +6,22 @@ import { ContentConverterV2 } from './src/converter';
 import { WeChatPublisherSettingTab } from './src/settings-tab';
 import { PreviewModal } from './src/preview-modal';
 import { ArticleService } from './src/article-service';
+import ThemeManager from './src/theme-manager';
 
 export default class WeChatPublisherPlugin extends Plugin {
 	settings: WeChatSettings;
 	apiManager: WeChatAPIManager;
 	converter: ContentConverterV2;
 	articleService: ArticleService;
+	themeManager: ThemeManager;
 
 	async onload() {
 		await this.loadSettings();
 
-		// Initialize managers
+		// Initialize theme manager first
+		this.themeManager = await ThemeManager.setup(this.app);
+
+		// Initialize other managers
 		this.apiManager = new WeChatAPIManager(this.app, this.settings);
 		this.converter = new ContentConverterV2(this.app, this.apiManager, this.settings);
 		this.articleService = new ArticleService(this.app, this.apiManager, this.settings);

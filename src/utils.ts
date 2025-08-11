@@ -4,7 +4,7 @@
 
 /**
  * 清理URL，确保URL的安全性
- * 参考note-to-mp的cleanUrl实现
+ * 安全URL清理实现
  */
 export function cleanUrl(href: string): string | null {
     try {
@@ -208,7 +208,7 @@ interface CSSDeclaration {
 }
 
 /**
- * 简单的CSS解析器 - 参考note-to-mp实现
+ * 简单的CSS解析器 - 解析CSS字符串为规则对象
  * 解析CSS字符串为规则对象
  */
 export function parseCSS(css: string): CSSRule[] {
@@ -263,7 +263,7 @@ export function parseCSS(css: string): CSSRule[] {
 }
 
 /**
- * 将CSS规则应用到HTML元素 - 参考note-to-mp的applyStyle实现
+ * 将CSS规则应用到HTML元素 - 内联样式应用实现
  */
 function applyStyleToElement(element: HTMLElement, rules: CSSRule[]): void {
     // 跳过微信链接
@@ -299,7 +299,7 @@ function applyStyleToElement(element: HTMLElement, rules: CSSRule[]): void {
 }
 
 /**
- * 将CSS应用到HTML - note-to-mp风格
+ * 将CSS应用到HTML - PostCSS风格的内联化实现
  * @param html HTML字符串
  * @param css CSS字符串
  * @returns 应用CSS后的HTML字符串

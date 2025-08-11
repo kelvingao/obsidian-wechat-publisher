@@ -120,7 +120,7 @@ export class PreviewModal extends Modal {
 			
 			// 包装HTML并使用预览格式化
 			const wrappedHtml = `<section id="nice">${html}</section>`;
-			const htmlContent = this.wechatPublisher.formatForPreview(frontMatterHtml + wrappedHtml);
+			const htmlContent = this.wechatPublisher.formatForPreview(frontMatterHtml + wrappedHtml, this.settings);
 			
 			// 显示预览
 			this.previewEl.empty();
@@ -187,7 +187,7 @@ export class PreviewModal extends Modal {
 			
 			// 包装并格式化为微信格式
 			const wrappedHtml = `<section id="nice">${html}</section>`;
-			const processedHtml = this.wechatPublisher.formatForWechat(wrappedHtml);
+			const processedHtml = this.wechatPublisher.formatForWechat(wrappedHtml, this.settings);
 
 			// 构建文章数据
 			const articleData = {
